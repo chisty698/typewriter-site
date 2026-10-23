@@ -4,12 +4,39 @@ import { useEffect, useRef, useState } from "react";
 import { Special_Elite } from "next/font/google";
 
 const typewriter = Special_Elite({ weight: "400", subsets: ["latin"] });
-const rows = ["1234567890", "QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"];
+
+// Picture size and key positions (measured on the picture)
+const W = 1376;
+const H = 768;
+
+const keyPos: Record<string, [number, number]> = {};
+"1234567890".split("").forEach((k, i) => {
+  keyPos[k] = [485 + i * 37.2, 502];
+});
+"QWERTYUIOP".split("").forEach((k, i) => {
+  keyPos[k] = [501 + i * 37.6, 533];
+});
+"ASDFGHJKL".split("").forEach((k, i) => {
+  keyPos[k] = [508 + i * 38.1, 564];
+});
+"ZXCVBNM".split("").forEach((k, i) => {
+  keyPos[k] = [524 + i * 38.8, 596];
+});
 
 export default function Home() {
   const [text, setText] = useState("");
   const [pressed, setPressed] = useState<string | null>(null);
-  const paperRef = useRef<HTMLDivElement>(null);
+  const [vp, setVp] = useState({ w: 1366, h: 768 });
+  const textBoxRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function resize() {
+      setVp({ w: window.innerWidth, h: window.innerHeight });
+    }
+    resize();
+    window.addEventListener("resize", resize);
+    return () => window.removeEventListener("resize", resize);
+  }, []);
 
   useEffect(() => {
     function down(e: KeyboardEvent) {
@@ -37,62 +64,87 @@ export default function Home() {
     };
   }, []);
 
+  // Keep the newest line visible: the paper "scrolls" as you type
   useEffect(() => {
-    if (paperRef.current) {
-      paperRef.current.scrollTop = paperRef.current.scrollHeight;
+    if (textBoxRef.current) {
+      textBoxRef.current.scrollTop = textBoxRef.current.scrollHeight;
     }
   }, [text]);
 
-  return (
-    <>
-      <video
-        autoPlay
-        muted
-        loop
-        playsInline
-        className="fixed inset-0 w-full h-full object-cover z-0"
-      >
-        <source src="/beach.mp4" type="video/mp4" />
-      </video>
-      <div className="fixed inset-0 bg-black/20 z-0" />
+  // Fill the whole screen with the picture (centered, never stretched)
+  const scale = Math.max(vp.w / W, vp.h / H);
+  const rw = W * scale;
+  const rh = H * scale;
+  const left = (vp.w - rw) / 2;
+  const top = (vp.h - rh) / 2;
 
-      <main
-        className={`${typewriter.className} relative z-10 min-h-screen flex flex-col items-center py-8 px-4`}
-      >
+  const spot = pressed && pressed !== " " ? keyPos[pressed] : null;
+
+  return (
+    <div className="fixed inset-0 overflow-hidden bg-black">
+      <div style={{ position: "absolute", left, top, width: rw, height: rh }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/typewriter.jpg"
+          alt="Typewriter on the beach"
+          style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
+        />
+
+        {/* Typed text on the paper */}
         <div
-          ref={paperRef}
-          className="w-full max-w-xl h-60 bg-amber-50 text-stone-800 text-lg p-6 overflow-y-auto whitespace-pre-wrap shadow-lg rounded-t-sm"
+          ref={textBoxRef}
+          className={typewriter.className}
+          style={{
+            position: "absolute",
+            left: "40%",
+            top: "28%",
+            width: "21.8%",
+            height: "21.5%",
+            overflow: "hidden",
+            color: "#3a3a3a",
+            fontSize: rw * 0.0095,
+            lineHeight: 1.55,
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-word",
+          }}
         >
-          {text || <span className="text-stone-400">Start typing...</span>}
+          {text}
           <span className="animate-pulse">|</span>
         </div>
 
-        <div className="w-full max-w-xl bg-stone-900 rounded-b-3xl p-5 flex flex-col items-center gap-3 shadow-2xl">
-          {rows.map((row) => (
-            <div key={row} className="flex gap-2">
-              {row.split("").map((k) => (
-                <div
-                  key={k}
-                  className={`w-10 h-10 rounded-full border-4 border-stone-500 flex items-center justify-center text-sm transition-all duration-75 ${
-                    pressed === k
-                      ? "bg-amber-300 text-stone-900 translate-y-1 shadow-none"
-                      : "bg-stone-200 text-stone-800 shadow-[0_4px_0_#78716c]"
-                  }`}
-                >
-                  {k}
-                </div>
-              ))}
-            </div>
-          ))}
+        {/* Pressed letter key */}
+        {spot && (
           <div
-            className={`w-64 h-9 rounded-md border-4 border-stone-500 transition-all duration-75 ${
-              pressed === " "
-                ? "bg-amber-300 translate-y-1"
-                : "bg-stone-200 shadow-[0_4px_0_#78716c]"
-            }`}
+            style={{
+              position: "absolute",
+              left: `${(spot[0] / W) * 100}%`,
+              top: `${(spot[1] / H) * 100}%`,
+              width: "2.1%",
+              aspectRatio: "1",
+              transform: "translate(-50%, -45%) scale(0.92)",
+              borderRadius: "50%",
+              background: "rgba(255, 190, 70, 0.55)",
+              boxShadow: "0 0 10px rgba(255, 190, 70, 0.9)",
+            }}
           />
-        </div>
-      </main>
-    </>
+        )}
+
+        {/* Pressed space bar */}
+        {pressed === " " && (
+          <div
+            style={{
+              position: "absolute",
+              left: `${(697 / W) * 100}%`,
+              top: `${(640 / H) * 100}%`,
+              width: "26.5%",
+              height: "3.4%",
+              transform: "translate(-50%, -50%)",
+              borderRadius: "6px",
+              background: "rgba(255, 190, 70, 0.4)",
+            }}
+          />
+        )}
+      </div>
+    </div>
   );
 }
